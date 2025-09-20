@@ -1,5 +1,5 @@
 // cspell:ignore colombia
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { teams } from "./utils/teams";
 import CountryRow from "./components/CountryRow";
 import {
@@ -8,6 +8,7 @@ import {
   buildOptions,
   buildPoolFromSelection,
   drawMatches,
+  getCountryBg,
   makeOnChangeCount,
   makeToggle,
   normalizeTo32,
@@ -65,13 +66,16 @@ function App() {
     Otros: otros,
   };
 
-  const byCountryTeams = {
+const byCountryTeams = useMemo(
+  () => ({
     ARG: teams.filter((t) => t.country === "ARG"),
     BRA: teams.filter((t) => t.country === "BRA"),
     CHI: teams.filter((t) => t.country === "CHI"),
     COL: teams.filter((t) => t.country === "COL"),
     Otros: teams.filter((t) => t.country === "Otros"),
-  };
+  }),
+  []
+);
 
   const handleSortear = () => {
     const basePool = globalMode
@@ -92,6 +96,17 @@ function App() {
   };
 
   const canSort = globalMode || totalSelected > 0;
+
+  const handleLimpiar = () => {
+    setArgentina({ enabled: false, count: 0 });
+    setBrasil({ enabled: false, count: 0 });
+    setChile({ enabled: false, count: 0 });
+    setColombia({ enabled: false, count: 0 });
+    setOtros({ enabled: false, count: 0 });
+    setGlobalMode(false);
+    setAllowSameCountry(true);
+    setMatches([]);
+  };
 
   return (
     <main className="min-h-screen bg-slate-50 py-10">
@@ -199,6 +214,7 @@ function App() {
 
           <div className="flex justify-end gap-3 px-6 py-4">
             <button
+              onClick={handleLimpiar}
               type="button"
               className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500"
             >
@@ -225,6 +241,9 @@ function App() {
               <h2 className="mt-6 mb-2 text-lg font-semibold">
                 Emparejamientos
               </h2>
+              <p className="text-xs text-slate-500 mb-2">
+                Local/Visitante sorteado aleatoriamente.
+              </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* columna izquierda: 1–8 */}
@@ -238,17 +257,9 @@ function App() {
 
                       {/* HOME */}
                       <div
-                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${
-                          m.home.country === "ARG"
-                            ? "bg-blue-50"
-                            : m.home.country === "BRA"
-                            ? "bg-green-50"
-                            : m.home.country === "CHI"
-                            ? "bg-red-50"
-                            : m.home.country === "COL"
-                            ? "bg-yellow-50"
-                            : "bg-slate-50"
-                        }`}
+                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
+                          m.home.country
+                        )}`}
                       >
                         <span className="font-medium text-center">
                           {m.home.name}
@@ -262,17 +273,9 @@ function App() {
 
                       {/* AWAY */}
                       <div
-                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${
-                          m.away.country === "ARG"
-                            ? "bg-blue-50"
-                            : m.away.country === "BRA"
-                            ? "bg-green-50"
-                            : m.away.country === "CHI"
-                            ? "bg-red-50"
-                            : m.away.country === "COL"
-                            ? "bg-yellow-50"
-                            : "bg-slate-50"
-                        }`}
+                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
+                          m.home.country
+                        )}`}
                       >
                         <span className="font-medium text-center">
                           {m.away.name}
