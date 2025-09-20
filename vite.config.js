@@ -4,7 +4,12 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  base: "/pesSorteo16avos/", // 👈 ruta del repo, con / al inicio y al final
-  build: { outDir: "docs" },
+  plugins: [
+    react(),
+    tailwindcss(), 
+  ],
+  base: "/pesSorteo16avos/", 
+  build: {
+    outDir: "docs",
+  },
 });
