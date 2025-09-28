@@ -131,14 +131,58 @@ export const drawMatches = (
 ) => {
   if (!Array.isArray(pool) || pool.length < 2) return [];
 
-  const base = pool;
+  const pairSequential = (arr) =>
+    arr.reduce((acc, _, i, a) => {
+      if (i % 2 === 0 && a[i + 1]) {
+        acc.push({ id: acc.length + 1, home: a[i], away: a[i + 1] });
+      }
+      return acc;
+    }, []);
 
-  return base.reduce((acc, _, i, arr) => {
-    if (i % 2 === 0 && arr[i + 1]) {
-      acc.push({ id: acc.length + 1, home: arr[i], away: arr[i + 1] });
+  const N = pool.length;
+  const tries = 400;
+
+  // Caso simple: se permite mismo país → emparejado directo sobre un shuffle
+  if (allowSameCountry) {
+    return pairSequential(shuffle(pool));
+  }
+
+  // Evitar mismo país: greedy con reintentos + swaps locales
+  for (let t = 0; t < tries; t++) {
+    const a = shuffle(pool);
+    const matches = [];
+    let ok = true;
+
+    for (let i = 0; i < N; i += 2) {
+      let t1 = a[i],
+        t2 = a[i + 1];
+      if (!t2) {
+        ok = false;
+        break;
+      }
+
+      if (t1.country === t2.country) {
+        // buscar candidato distinto a partir de i+2
+        let j = i + 2;
+        while (j < N && a[j].country === t1.country) j++;
+        if (j < N) {
+          // swap con el candidato
+          [a[i + 1], a[j]] = [a[j], a[i + 1]];
+          t2 = a[i + 1];
+        } else {
+          ok = false; // este shuffle no sirve
+          break;
+        }
+      }
+
+      matches.push({ id: matches.length + 1, home: t1, away: t2 });
     }
-    return acc;
-  }, []);
+
+    if (ok) return matches;
+  }
+
+  // Último recurso: si no encuentra configuración válida, permitir cruces
+  return pairSequential(shuffle(pool));
 };
 
 export function pairArgOnePerMatchIfPossible(pool32) {

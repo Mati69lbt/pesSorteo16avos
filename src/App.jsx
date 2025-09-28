@@ -1,6 +1,7 @@
-// cspell:ignore colombia
+// cspell:ignore colombia bras chile otros brasil emparejamientos Notiflix notiflix
 import React, { useMemo, useState } from "react";
 import { teams } from "./utils/teams";
+import Notiflix from "notiflix";
 import CountryRow from "./components/CountryRow";
 import {
   asSelectValue,
@@ -58,6 +59,8 @@ function App() {
     (colombia.enabled ? colombia.count : 0) +
     (otros.enabled ? otros.count : 0);
 
+  console.log(totalSelected);
+
   const selectedByCountry = {
     ARG: argentina, // { enabled, count }
     BRA: brasil, // idem
@@ -66,33 +69,76 @@ function App() {
     Otros: otros,
   };
 
-const byCountryTeams = useMemo(
-  () => ({
-    ARG: teams.filter((t) => t.country === "ARG"),
-    BRA: teams.filter((t) => t.country === "BRA"),
-    CHI: teams.filter((t) => t.country === "CHI"),
-    COL: teams.filter((t) => t.country === "COL"),
-    Otros: teams.filter((t) => t.country === "Otros"),
-  }),
-  []
-);
+  const byCountryTeams = useMemo(
+    () => ({
+      ARG: teams.filter((t) => t.country === "ARG"),
+      BRA: teams.filter((t) => t.country === "BRA"),
+      CHI: teams.filter((t) => t.country === "CHI"),
+      COL: teams.filter((t) => t.country === "COL"),
+      Otros: teams.filter((t) => t.country === "Otros"),
+    }),
+    []
+  );
+
+  Notiflix.Loading.init({
+    clickToClose: false,
+    svgSize: "72px",
+    messageFontSize: "14px",
+  });
+
+  // const handleSortear = () => {
+  //   const basePool = globalMode
+  //     ? buildGlobal32(teams)
+  //     : buildPoolFromSelection(selectedByCountry, byCountryTeams);
+
+  //   const pool32 = normalizeTo32(basePool);
+
+  //   // —— nuevo: si hay 16 ARG, aplicamos la regla automática
+  //   let result = pairArgOnePerMatchIfPossible(pool32);
+
+  //   if (!result) {
+  //     // si no se pudo 16/16, caemos al emparejado normal
+  //     result = drawMatches(pool32, { allowSameCountry });
+  //   }
+
+  //   setMatches(result);
+  // };
 
   const handleSortear = () => {
-    const basePool = globalMode
-      ? buildGlobal32(teams)
-      : buildPoolFromSelection(selectedByCountry, byCountryTeams);
+    Notiflix.Loading.circle("Sorteando…");
+    try {
+      const basePool = globalMode
+        ? buildGlobal32(teams)
+        : buildPoolFromSelection(selectedByCountry, byCountryTeams);
 
-    const pool32 = normalizeTo32(basePool);
+      const pool32 = normalizeTo32(basePool);
 
-    // —— nuevo: si hay 16 ARG, aplicamos la regla automática
-    let result = pairArgOnePerMatchIfPossible(pool32);
+      // si hay 16 ARG, aplicamos la regla automática
+      let result = pairArgOnePerMatchIfPossible(pool32);
 
-    if (!result) {
-      // si no se pudo 16/16, caemos al emparejado normal
-      result = drawMatches(pool32, { allowSameCountry });
+      if (!result) {
+        // si no se pudo 16/16, caemos al emparejado normal
+        result = drawMatches(pool32, { allowSameCountry });
+      }
+
+      setMatches(result);
+
+      // (opcional) avisar si no se pudieron evitar cruces del mismo país
+      const hasSameCountry =
+        Array.isArray(result) &&
+        result.some((m) => m.home.country === m.away.country);
+
+      if (!allowSameCountry && hasSameCountry) {
+        Notiflix.Notify.warning(
+          "No fue posible evitar todos los cruces del mismo país."
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      Notiflix.Notify.failure("Ocurrió un error durante el sorteo.");
+    } finally {
+      Notiflix.Loading.remove();
     }
-
-    setMatches(result);
   };
 
   const canSort = globalMode || totalSelected > 0;
@@ -107,6 +153,19 @@ const byCountryTeams = useMemo(
     setAllowSameCountry(true);
     setMatches([]);
   };
+
+  const countryCounts = React.useMemo(() => {
+    if (!Array.isArray(matches) || matches.length === 0) {
+      return { ARG: 0, BRA: 0, CHI: 0, COL: 0, Otros: 0, total: 0 };
+    }
+    const allTeams = matches.flatMap((m) => [m.home, m.away]);
+    const acc = { ARG: 0, BRA: 0, CHI: 0, COL: 0, Otros: 0 };
+    allTeams.forEach((t) => {
+      const key = acc.hasOwnProperty(t.country) ? t.country : "Otros";
+      acc[key] = (acc[key] || 0) + 1;
+    });
+    return { ...acc, total: allTeams.length };
+  }, [matches]);
 
   return (
     <main className="min-h-screen bg-slate-50 py-10">
@@ -147,11 +206,11 @@ const byCountryTeams = useMemo(
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={allowSameCountry}
-                  onChange={(e) => setAllowSameCountry(e.target.checked)}
+                  checked={!allowSameCountry} // invertido
+                  onChange={(e) => setAllowSameCountry(!e.target.checked)}
                 />
                 <span className="text-sm text-slate-800">
-                  Permitir mismo país
+                  Evitar cruces del mismo país
                 </span>
               </label>
             </div>
@@ -245,6 +304,41 @@ const byCountryTeams = useMemo(
                 Local/Visitante sorteado aleatoriamente.
               </p>
 
+              {matches.length > 0 && (
+                <div className="mb-3 -mt-1">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                    {[
+                      { code: "ARG", label: "Argentina" },
+                      { code: "BRA", label: "Brasil" },
+                      { code: "CHI", label: "Chile" },
+                      { code: "COL", label: "Colombia" },
+                      { code: "Otros", label: "Otros" },
+                    ].map(({ code, label }) => (
+                      <div
+                        key={code}
+                        className={`shrink-0 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm border border-slate-200 ${getCountryBg(
+                          code
+                        )}`}
+                        title={`${label}: ${countryCounts[code] || 0}`}
+                      >
+                        <span className="font-medium">{label}</span>
+                        <span className="text-xs text-slate-600">
+                          {countryCounts[code] || 0}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* total a la derecha */}
+                    <div className="shrink-0 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm border border-slate-200 bg-slate-50 ml-2">
+                      <span className="font-medium">Total</span>
+                      <span className="text-xs text-slate-600">
+                        {countryCounts.total}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* columna izquierda: 1–8 */}
                 <div className="grid gap-2">
@@ -274,7 +368,7 @@ const byCountryTeams = useMemo(
                       {/* AWAY */}
                       <div
                         className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
-                          m.home.country
+                          m.away.country
                         )}`}
                       >
                         <span className="font-medium text-center">
