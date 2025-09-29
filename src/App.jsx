@@ -177,6 +177,9 @@ function App() {
           <p className="mt-1 text-sm text-slate-600">
             Elegí países y cuántos equipos tomar de cada uno.
           </p>
+          <p className="mt-1 text-sm text-slate-600">
+          Version 28/09
+          </p>
         </header>
 
         <section className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-900/5">
