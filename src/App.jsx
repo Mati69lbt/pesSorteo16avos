@@ -72,8 +72,6 @@ function App() {
       (colombia.enabled ? colombia.count : 0) +
       (otros.enabled ? otros.count : 0);
 
-  console.log(totalSelected);
-
   const selectedByCountry = {
     ARG: argentina, // { enabled, count }
     BRA: brasil, // idem

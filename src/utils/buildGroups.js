@@ -1,7 +1,4 @@
 export const buildGroups = (teams, { allowSameCountry } = {}) => {
-  console.log("buildGroups recibió", teams.length, "equipos");
-  console.log("allowSameCountry:", allowSameCountry);
-
   const GROUP_CAP = 4; // capacidad por grupo
   const groupNames = ["A", "B", "C", "D", "E", "F", "G", "H"];
   let groups = groupNames.map((id) => ({ id, teams: [] }));

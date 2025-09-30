@@ -1,10 +1,6 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 const Groups = ({ groups, getCountryBg, countryCounts }) => {
-  if (!groups || groups.length === 0) {
-    return <div className="text-gray-500">No hay grupos generados aún.</div>;
-  } 
-
   return (
     <div className="m-3">
       {groups.length > 0 && (
