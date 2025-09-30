@@ -15,6 +15,9 @@ import {
   normalizeTo32,
   pairArgOnePerMatchIfPossible,
 } from "./utils/countryHelpers";
+import Elimination from "./components/Elimination";
+import Groups from "./components/Groups";
+import { buildGroups } from "./utils/buildGroups";
 
 function App() {
   const [argentina, setArgentina] = useState({ enabled: false, count: 0 });
@@ -27,6 +30,9 @@ function App() {
 
   const [allowSameCountry, setAllowSameCountry] = useState(true);
   const [matches, setMatches] = useState([]);
+
+  const [Formato, setFormato] = useState("16avos" || "Grupos");
+  const [groups, setGroups] = useState([]);
 
   const ARG_TOTAL = teams.filter((t) => t.country === "ARG").length;
   const BRA_TOTAL = teams.filter((t) => t.country === "BRA").length;
@@ -52,12 +58,13 @@ function App() {
   const onChangeColombiaCount = makeOnChangeCount(setColombia, COL_TOTAL);
   const onChangeOtrosCount = makeOnChangeCount(setOtros, OTROS_TOTAL);
 
-  const totalSelected =
-    (argentina.enabled ? argentina.count : 0) +
-    (brasil.enabled ? brasil.count : 0) +
-    (chile.enabled ? chile.count : 0) +
-    (colombia.enabled ? colombia.count : 0) +
-    (otros.enabled ? otros.count : 0);
+  const totalSelected = globalMode
+    ? teams.length // todos los equipos
+    : (argentina.enabled ? argentina.count : 0) +
+      (brasil.enabled ? brasil.count : 0) +
+      (chile.enabled ? chile.count : 0) +
+      (colombia.enabled ? colombia.count : 0) +
+      (otros.enabled ? otros.count : 0);
 
   console.log(totalSelected);
 
@@ -86,24 +93,6 @@ function App() {
     messageFontSize: "14px",
   });
 
-  // const handleSortear = () => {
-  //   const basePool = globalMode
-  //     ? buildGlobal32(teams)
-  //     : buildPoolFromSelection(selectedByCountry, byCountryTeams);
-
-  //   const pool32 = normalizeTo32(basePool);
-
-  //   // —— nuevo: si hay 16 ARG, aplicamos la regla automática
-  //   let result = pairArgOnePerMatchIfPossible(pool32);
-
-  //   if (!result) {
-  //     // si no se pudo 16/16, caemos al emparejado normal
-  //     result = drawMatches(pool32, { allowSameCountry });
-  //   }
-
-  //   setMatches(result);
-  // };
-
   const handleSortear = () => {
     Notiflix.Loading.circle("Sorteando…");
     try {
@@ -112,26 +101,37 @@ function App() {
         : buildPoolFromSelection(selectedByCountry, byCountryTeams);
 
       const pool32 = normalizeTo32(basePool);
-
-      // si hay 16 ARG, aplicamos la regla automática
-      let result = pairArgOnePerMatchIfPossible(pool32);
-
-      if (!result) {
-        // si no se pudo 16/16, caemos al emparejado normal
-        result = drawMatches(pool32, { allowSameCountry });
+      if (!pool32.length) {
+        Notiflix.Notify.warning("Debes seleccionar 32 equipos.");
+        return;
       }
 
-      setMatches(result);
+      if (Formato === "16avos") {
+        // === ELIMINACIÓN DIRECTA ===
+        let result = pairArgOnePerMatchIfPossible(pool32);
+        if (!result) {
+          result = drawMatches(pool32, { allowSameCountry });
+        }
 
-      // (opcional) avisar si no se pudieron evitar cruces del mismo país
-      const hasSameCountry =
-        Array.isArray(result) &&
-        result.some((m) => m.home.country === m.away.country);
+        setMatches(result);
+        setGroups([]);
 
-      if (!allowSameCountry && hasSameCountry) {
-        Notiflix.Notify.warning(
-          "No fue posible evitar todos los cruces del mismo país."
-        );
+        const hasSameCountry =
+          Array.isArray(result) &&
+          result.some((m) => m.home.country === m.away.country);
+
+        if (!allowSameCountry && hasSameCountry) {
+          Notiflix.Notify.warning(
+            "No fue posible evitar todos los cruces del mismo país."
+          );
+        }
+      }
+      if (Formato === "Grupos") {
+        // === FASE DE GRUPOS ===
+        const grupos = buildGroups(basePool, { allowSameCountry });
+        setGroups(grupos);
+        setMatches([]);
+        return;
       }
     } catch (e) {
       console.error(e);
@@ -155,31 +155,35 @@ function App() {
   };
 
   const countryCounts = React.useMemo(() => {
-    if (!Array.isArray(matches) || matches.length === 0) {
-      return { ARG: 0, BRA: 0, CHI: 0, COL: 0, Otros: 0, total: 0 };
+    let allTeams = [];
+
+    if (Formato === "16avos" && Array.isArray(matches) && matches.length > 0) {
+      allTeams = matches.flatMap((m) => [m.home, m.away]);
     }
-    const allTeams = matches.flatMap((m) => [m.home, m.away]);
+
+    if (Formato === "Grupos" && Array.isArray(groups) && groups.length > 0) {
+      allTeams = groups.flatMap((g) => g.teams);
+    }
+
     const acc = { ARG: 0, BRA: 0, CHI: 0, COL: 0, Otros: 0 };
     allTeams.forEach((t) => {
       const key = acc.hasOwnProperty(t.country) ? t.country : "Otros";
       acc[key] = (acc[key] || 0) + 1;
     });
     return { ...acc, total: allTeams.length };
-  }, [matches]);
+  }, [Formato, matches, groups]);
 
   return (
     <main className="min-h-screen bg-slate-50 py-10">
       <div className="mx-auto max-w-3xl px-4">
         <header className="mb-8">
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-            🎮 Sorteo 16avos — PES 2019 ⚽
+            🎮 Sorteo PES 2019 ⚽
           </h1>
           <p className="mt-1 text-sm text-slate-600">
             Elegí países y cuántos equipos tomar de cada uno.
           </p>
-          <p className="mt-1 text-sm text-slate-600">
-          Version 28/09
-          </p>
+          <p className="mt-1 text-sm text-slate-600">Version 29/09</p>
         </header>
 
         <section className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-900/5">
@@ -187,6 +191,16 @@ function App() {
             <h2 className="text-base font-semibold text-slate-900">
               Configuración del sorteo
             </h2>
+            <select
+              name=""
+              id=""
+              className="mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-500 focus:ring-2 focus:ring-slate-500"
+              onChange={(e) => setFormato(e.target.value)}
+            >
+              <option value="">Formato</option>
+              <option value="16avos">16avos</option>
+              <option value="Grupos">Grupos</option>
+            </select>
           </div>
           {/* Controles globales */}
           <div className="px-6 pt-4 pb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -194,7 +208,18 @@ function App() {
               <input
                 type="checkbox"
                 checked={globalMode}
-                onChange={(e) => setGlobalMode(e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setGlobalMode(checked);
+                  if (checked) {
+                    // desactivar todos los países
+                    setArgentina({ ...argentina, enabled: false });
+                    setBrasil({ ...brasil, enabled: false });
+                    setChile({ ...chile, enabled: false });
+                    setColombia({ ...colombia, enabled: false });
+                    setOtros({ ...otros, enabled: false });
+                  }
+                }}
               />
               <span className="text-sm text-slate-800">
                 Sortear todos al azar
@@ -228,6 +253,7 @@ function App() {
               options={argOptions}
               onToggle={onToggleArgentina}
               onChange={onChangeArgentinaCount}
+              disabled={globalMode}
             />
 
             <CountryRow
@@ -238,6 +264,7 @@ function App() {
               options={braOptions}
               onToggle={onToggleBrasil}
               onChange={onChangeBrasilCount}
+              disabled={globalMode}
             />
 
             <CountryRow
@@ -248,6 +275,7 @@ function App() {
               options={chiOptions}
               onToggle={onToggleChile}
               onChange={onChangeChileCount}
+              disabled={globalMode}
             />
 
             <CountryRow
@@ -258,6 +286,7 @@ function App() {
               options={colOptions}
               onToggle={onToggleColombia}
               onChange={onChangeColombiaCount}
+              disabled={globalMode}
             />
 
             <CountryRow
@@ -268,6 +297,7 @@ function App() {
               options={otrosOptions}
               onToggle={onToggleOtros}
               onChange={onChangeOtrosCount}
+              disabled={globalMode}
             />
           </div>
           <p className="text-sm text-slate-600 mt-2 ml-6">
@@ -297,155 +327,20 @@ function App() {
             </button>
           </div>
         </section>
-        <section>
-          {matches.length > 0 && (
-            <>
-              <h2 className="mt-6 mb-2 text-lg font-semibold">
-                Emparejamientos
-              </h2>
-              <p className="text-xs text-slate-500 mb-2">
-                Local/Visitante sorteado aleatoriamente.
-              </p>
-
-              {matches.length > 0 && (
-                <div className="mb-3 -mt-1">
-                  <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                    {[
-                      { code: "ARG", label: "Argentina" },
-                      { code: "BRA", label: "Brasil" },
-                      { code: "CHI", label: "Chile" },
-                      { code: "COL", label: "Colombia" },
-                      { code: "Otros", label: "Otros" },
-                    ].map(({ code, label }) => (
-                      <div
-                        key={code}
-                        className={`shrink-0 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm border border-slate-200 ${getCountryBg(
-                          code
-                        )}`}
-                        title={`${label}: ${countryCounts[code] || 0}`}
-                      >
-                        <span className="font-medium">{label}</span>
-                        <span className="text-xs text-slate-600">
-                          {countryCounts[code] || 0}
-                        </span>
-                      </div>
-                    ))}
-
-                    {/* total a la derecha */}
-                    <div className="shrink-0 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm border border-slate-200 bg-slate-50 ml-2">
-                      <span className="font-medium">Total</span>
-                      <span className="text-xs text-slate-600">
-                        {countryCounts.total}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* columna izquierda: 1–8 */}
-                <div className="grid gap-2">
-                  {matches.slice(0, 8).map((m, i) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2"
-                    >
-                      <strong className="w-7 text-right">#{i + 1}</strong>
-
-                      {/* HOME */}
-                      <div
-                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
-                          m.home.country
-                        )}`}
-                      >
-                        <span className="font-medium text-center">
-                          {m.home.name}
-                        </span>
-                        <span className="text-xs text-slate-500 text-center">
-                          {m.home.country}
-                        </span>
-                      </div>
-
-                      <span className="font-bold mx-2">vs</span>
-
-                      {/* AWAY */}
-                      <div
-                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
-                          m.away.country
-                        )}`}
-                      >
-                        <span className="font-medium text-center">
-                          {m.away.name}
-                        </span>
-                        <span className="text-xs text-slate-500 text-center">
-                          {m.away.country}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* columna derecha: 9–16 */}
-                <div className="grid gap-2">
-                  {matches.slice(8, 16).map((m, i) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2"
-                    >
-                      <strong className="w-7 text-right">#{i + 9}</strong>
-
-                      {/* HOME */}
-                      <div
-                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${
-                          m.home.country === "ARG"
-                            ? "bg-blue-50"
-                            : m.home.country === "BRA"
-                            ? "bg-green-50"
-                            : m.home.country === "CHI"
-                            ? "bg-red-50"
-                            : m.home.country === "COL"
-                            ? "bg-yellow-50"
-                            : "bg-slate-50"
-                        }`}
-                      >
-                        <span className="font-medium text-center">
-                          {m.home.name}
-                        </span>
-                        <span className="text-xs text-slate-500 text-center">
-                          {m.home.country}
-                        </span>
-                      </div>
-
-                      <span className="font-bold mx-2">vs</span>
-
-                      {/* AWAY */}
-                      <div
-                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${
-                          m.away.country === "ARG"
-                            ? "bg-blue-50"
-                            : m.away.country === "BRA"
-                            ? "bg-green-50"
-                            : m.away.country === "CHI"
-                            ? "bg-red-50"
-                            : m.away.country === "COL"
-                            ? "bg-yellow-50"
-                            : "bg-slate-50"
-                        }`}
-                      >
-                        <span className="font-medium text-center">
-                          {m.away.name}
-                        </span>
-                        <span className="text-xs text-slate-500 text-center">
-                          {m.away.country}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </section>
+        {Formato === "16avos" && (
+          <Elimination
+            matches={matches}
+            countryCounts={countryCounts}
+            getCountryBg={getCountryBg}
+          />
+        )}
+        {Formato === "Grupos" && (
+          <Groups
+            groups={groups}
+            getCountryBg={getCountryBg}
+            countryCounts={countryCounts}
+          />
+        )}
       </div>
     </main>
   );
