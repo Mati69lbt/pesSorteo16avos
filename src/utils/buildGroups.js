@@ -2,10 +2,10 @@ export const buildGroups = (teams, { allowSameCountry } = {}) => {
   console.log("buildGroups recibió", teams.length, "equipos");
   console.log("allowSameCountry:", allowSameCountry);
 
+  const GROUP_CAP = 4; // capacidad por grupo
   const groupNames = ["A", "B", "C", "D", "E", "F", "G", "H"];
   let groups = groupNames.map((id) => ({ id, teams: [] }));
 
-  // Helper shuffle
   const shuffle = (arr) => {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -15,74 +15,124 @@ export const buildGroups = (teams, { allowSameCountry } = {}) => {
     return a;
   };
 
-  // Caso 1: se permite mismo país
+  // índice del siguiente grupo con cupo TOTAL < GROUP_CAP
+  const nextGroupWithSlot = (groups, startIndex = 0) => {
+    for (let k = 0; k < groups.length; k++) {
+      const idx = (startIndex + k) % groups.length;
+      if (groups[idx].teams.length < GROUP_CAP) return idx;
+    }
+    return -1; // todos llenos
+  };
+
+  // --- Conteo por país y límites por país (regla de ≤16 => máx 2 por grupo) ---
+  const byCountry = {};
+  teams.forEach((t) => {
+    if (!byCountry[t.country]) byCountry[t.country] = [];
+    byCountry[t.country].push(t);
+  });
+
+  const countryCounts = Object.fromEntries(
+    Object.entries(byCountry).map(([c, arr]) => [c, arr.length])
+  );
+
+  const countryCap = (country) =>
+    countryCounts[country] <= 16 ? 2 : GROUP_CAP; // límite por grupo para ese país
+
+  const canPlace = (group, team) => {
+    if (group.teams.length >= GROUP_CAP) return false;
+    const cap = countryCap(team.country);
+    const countInGroup = group.teams.reduce(
+      (acc, t) => acc + (t.country === team.country ? 1 : 0),
+      0
+    );
+    return countInGroup < cap;
+  };
+
+  const nextGroupWithCountrySlot = (groups, team, startIndex = 0) => {
+    for (let k = 0; k < groups.length; k++) {
+      const idx = (startIndex + k) % groups.length;
+      if (canPlace(groups[idx], team)) return idx;
+    }
+    return -1;
+  };
+  // ---------------------------------------------------------------------------
+
+  // === Caso 1: se permite mismo país (pero con límite por país cuando ≤16) ===
   if (allowSameCountry) {
     const shuffled = shuffle(teams);
-    shuffled.forEach((team, i) => {
-      const groupIndex = i % groups.length;
-      groups[groupIndex].teams.push(team);
-    });
-  } else {
-    // Caso 2: evitar mismo país
-    const byCountry = {};
-    teams.forEach((t) => {
-      if (!byCountry[t.country]) byCountry[t.country] = [];
-      byCountry[t.country].push(t);
-    });
-
-    // Warning si un país tiene más de 8 equipos
-    for (const country in byCountry) {
-      if (byCountry[country].length > groups.length) {
-        console.warn(
-          `⚠️ El país ${country} tiene ${byCountry[country].length} equipos, más que los grupos disponibles`
-        );
+    for (let i = 0; i < shuffled.length; i++) {
+      const start = i % groups.length;
+      const idx = nextGroupWithCountrySlot(groups, shuffled[i], start);
+      if (idx === -1) {
+        // No hay ningún grupo con cupo total o de país
+        break;
       }
+      groups[idx].teams.push(shuffled[i]);
     }
-
+  } else {
+    // === Caso 2: intentar evitar mismo país (preferencia), pero respetar límite por país ===
     const countries = Object.keys(byCountry).sort(
       (a, b) => byCountry[b].length - byCountry[a].length
     );
-
-    countries.forEach((c) => {
-      byCountry[c] = shuffle(byCountry[c]);
-    });
+    countries.forEach((c) => (byCountry[c] = shuffle(byCountry[c])));
 
     countries.forEach((country) => {
-      byCountry[country].forEach((team, idx) => {
+      byCountry[country].forEach((team, idxInCountry) => {
         let placed = false;
+
+        // 1) Preferir grupos sin ese país y con cupo de país/total
         for (let offset = 0; offset < groups.length; offset++) {
-          const groupIndex = (idx + offset) % groups.length;
+          const groupIndex = (idxInCountry + offset) % groups.length;
           const group = groups[groupIndex];
           const hasSameCountry = group.teams.some((t) => t.country === country);
-          if (!hasSameCountry) {
+          if (!hasSameCountry && canPlace(group, team)) {
             group.teams.push(team);
             placed = true;
             break;
           }
         }
+
+        // 2) Si no hay grupo "limpio", colocar en alguno que aún esté bajo el cap de país (≤2 si aplica)
         if (!placed) {
-          // si no hay grupo libre, lo metemos igual en el que tenga menos equipos
-          const fallback = groups.reduce((min, g) =>
-            g.teams.length < min.teams.length ? g : min
+          let candidateIndex = -1;
+          for (let offset = 0; offset < groups.length; offset++) {
+            const groupIndex = (idxInCountry + offset) % groups.length;
+            if (canPlace(groups[groupIndex], team)) {
+              candidateIndex = groupIndex;
+              break;
+            }
+          }
+          if (candidateIndex !== -1) {
+            groups[candidateIndex].teams.push(team);
+            placed = true;
+          }
+        }
+
+        // 3) Si no hay forma (todos llenos o violaría caps), frenamos (máx 32 equipos)
+        if (!placed) {
+          console.warn(
+            "No hay grupos disponibles respetando los límites (cap 32)."
           );
-          fallback.teams.push(team);
+          return;
         }
       });
     });
   }
 
-  // === Recorte final a 32 ===
-  let allTeams = groups.flatMap((g) => g.teams);
-  if (allTeams.length > 32) {
-    allTeams = allTeams.slice(0, 32); // solo los primeros 32 tras el sorteo
-
-    // Rearmar los grupos con esos 32
+  // Seguridad extra: nunca devolver más de 32 equipos en total
+  let total = groups.reduce((acc, g) => acc + g.teams.length, 0);
+  if (total > 32) {
+    const all = groups.flatMap((g) => g.teams).slice(0, 32);
     groups = groupNames.map((id) => ({ id, teams: [] }));
-    allTeams.forEach((team, i) => {
-      const groupIndex = i % groups.length;
-      groups[groupIndex].teams.push(team);
-    });
+    // Re-distribuir respetando cap de país y total (sin preferencia extra)
+    for (let i = 0; i < all.length; i++) {
+      const idx = nextGroupWithCountrySlot(groups, all[i], i % groups.length);
+      if (idx === -1) break;
+      groups[idx].teams.push(all[i]);
+    }
   }
+
+  groups = groups.map((g) => ({ ...g, teams: shuffle(g.teams) }));
 
   return groups;
 };

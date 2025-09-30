@@ -34,6 +34,12 @@ function App() {
   const [Formato, setFormato] = useState("16avos" || "Grupos");
   const [groups, setGroups] = useState([]);
 
+  /***********BOCA************/
+
+  const [mustIncludeBJ, setMustIncludeBJ] = useState(false);
+
+  /***********BOCA************/
+
   const ARG_TOTAL = teams.filter((t) => t.country === "ARG").length;
   const BRA_TOTAL = teams.filter((t) => t.country === "BRA").length;
   const CHI_TOTAL = teams.filter((t) => t.country === "CHI").length;
@@ -96,20 +102,66 @@ function App() {
   const handleSortear = () => {
     Notiflix.Loading.circle("Sorteando…");
     try {
-      const basePool = globalMode
+      // --- Helpers locales para garantizar inclusión de Boca ---
+      const bocaTeam = teams.find((t) => t.id === 6);
+
+      const shuffle = (arr) => {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+
+      const ensureInclude = (pool, team) => {
+        if (!team) return pool;
+        return pool.some((t) => t.id === team.id) ? pool : [team, ...pool];
+      };
+
+      const capToNEnsuring = (pool, team, n) => {
+        const withTeam = ensureInclude(pool, team);
+        if (withTeam.length <= n) return withTeam;
+        const others = withTeam.filter((t) => t.id !== team.id);
+        const picked = shuffle(others).slice(0, Math.max(0, n - 1));
+        return [team, ...picked];
+      };
+      // ----------------------------------------------------------
+
+      // 1) Construir el pool base según el modo
+      const basePoolRaw = globalMode
         ? buildGlobal32(teams)
         : buildPoolFromSelection(selectedByCountry, byCountryTeams);
 
-      const pool32 = normalizeTo32(basePool);
-      if (!pool32.length) {
-        Notiflix.Notify.warning("Debes seleccionar 32 equipos.");
-        return;
-      }
+      // 2) Si el checkbox está activo, garantizar que Boca esté en el pool
+      const basePool = mustIncludeBJ
+        ? ensureInclude(basePoolRaw, bocaTeam)
+        : basePoolRaw;
 
+      // === ELIMINACIÓN DIRECTA (16avos) ===
       if (Formato === "16avos") {
-        // === ELIMINACIÓN DIRECTA ===
+        // 3) Normalizar a 32
+        let pool32 = normalizeTo32(basePool);
+
+        // 4) Si en la normalización se perdió a Boca, recortar preservándolo
+        if (
+          mustIncludeBJ &&
+          (!Array.isArray(pool32) || !pool32.some((t) => t.id === 6))
+        ) {
+          pool32 = capToNEnsuring(basePool, bocaTeam, 32);
+        }
+
+        if (!Array.isArray(pool32) || pool32.length !== 32) {
+          Notiflix.Notify.warning("Debes seleccionar 32 equipos.");
+          setMatches([]);
+          setGroups([]);
+          return;
+        }
+
+        // Intento de emparejar con 1 ARG por partido si es posible
         let result = pairArgOnePerMatchIfPossible(pool32);
         if (!result) {
+          // Fallback al sorteo estándar
           result = drawMatches(pool32, { allowSameCountry });
         }
 
@@ -126,9 +178,16 @@ function App() {
           );
         }
       }
+
+      // === FASE DE GRUPOS ===
       if (Formato === "Grupos") {
-        // === FASE DE GRUPOS ===
-        const grupos = buildGroups(basePool, { allowSameCountry });
+        // Si hay más de 32, recortar antes preservando Boca
+        const poolForGroups =
+          mustIncludeBJ && basePool.length > 32
+            ? capToNEnsuring(basePool, bocaTeam, 32)
+            : basePool;
+
+        const grupos = buildGroups(poolForGroups, { allowSameCountry });
         setGroups(grupos);
         setMatches([]);
         return;
@@ -183,7 +242,7 @@ function App() {
           <p className="mt-1 text-sm text-slate-600">
             Elegí países y cuántos equipos tomar de cada uno.
           </p>
-          <p className="mt-1 text-sm text-slate-600">Version 29/09</p>
+          <p className="mt-1 text-sm text-slate-600">Version 30/09</p>
         </header>
 
         <section className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-900/5">
@@ -203,44 +262,68 @@ function App() {
             </select>
           </div>
           {/* Controles globales */}
-          <div className="px-6 pt-4 pb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={globalMode}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setGlobalMode(checked);
-                  if (checked) {
-                    // desactivar todos los países
-                    setArgentina({ ...argentina, enabled: false });
-                    setBrasil({ ...brasil, enabled: false });
-                    setChile({ ...chile, enabled: false });
-                    setColombia({ ...colombia, enabled: false });
-                    setOtros({ ...otros, enabled: false });
-                  }
-                }}
-              />
-              <span className="text-sm text-slate-800">
-                Sortear todos al azar
-                <span className="text-slate-500">
-                  {" "}
-                  ({teams.length} equipos)
-                </span>
-              </span>
-            </label>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <label className="flex items-center gap-2">
+          <div className="px-6 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Global random */}
+              <label
+                className="inline-flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50 transition"
+                title="Sortea de toda la lista"
+              >
                 <input
                   type="checkbox"
-                  checked={!allowSameCountry} // invertido
-                  onChange={(e) => setAllowSameCountry(!e.target.checked)}
+                  className="size-4 accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                  checked={globalMode}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setGlobalMode(checked);
+                    if (checked) {
+                      // desactivar todos los países
+                      setArgentina({ ...argentina, enabled: false });
+                      setBrasil({ ...brasil, enabled: false });
+                      setChile({ ...chile, enabled: false });
+                      setColombia({ ...colombia, enabled: false });
+                      setOtros({ ...otros, enabled: false });
+                    }
+                  }}
                 />
                 <span className="text-sm text-slate-800">
-                  Evitar cruces del mismo país
+                  Sortear todos al azar{" "}
+                  <span className="text-xs text-slate-500 align-middle">
+                    ({teams.length} equipos)
+                  </span>
                 </span>
               </label>
+
+              {/* Right controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                <label
+                  className="inline-flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50 transition"
+                  title="Evita que coincidan clubes del mismo país"
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                    checked={!allowSameCountry} // invertido
+                    onChange={(e) => setAllowSameCountry(!e.target.checked)}
+                  />
+                  <span className="text-sm text-slate-800">
+                    Evitar cruces del mismo país
+                  </span>
+                </label>
+
+                <label
+                  className="inline-flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50 transition"
+                  title="Forzar inclusión de Boca Juniors"
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                    checked={mustIncludeBJ}
+                    onChange={(e) => setMustIncludeBJ(e.target.checked)}
+                  />
+                  <span className="text-sm text-slate-800">Jugar con BJ</span>
+                </label>
+              </div>
             </div>
           </div>
 
