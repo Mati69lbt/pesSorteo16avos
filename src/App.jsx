@@ -391,6 +391,15 @@ function App() {
               <option value="16avos|copa-arg-2012">Copa Argentina 2012</option>
               <option value="16avos|copa-arg-2013">Copa Argentina 2013</option>
               <option value="16avos|copa-arg-2014">Copa Argentina 2014</option>
+              <option value="16avos|copa-arg-2015">Copa Argentina 2015</option>
+              <option value="16avos|copa-arg-2016">Copa Argentina 2016</option>
+              <option value="16avos|copa-arg-2017">Copa Argentina 2017</option>
+              <option value="16avos|copa-arg-2018">Copa Argentina 2018</option>
+              <option value="16avos|copa-arg-2019">Copa Argentina 2019</option>
+              <option value="16avos|copa-arg-2020">Copa Argentina 2020</option>
+              <option value="16avos|copa-arg-2022">Copa Argentina 2022</option>
+              <option value="16avos|copa-arg-2023">Copa Argentina 2023</option>
+              <option value="16avos|copa-arg-2025">Copa Argentina 2025</option>
             </select>
 
             {Formato === "16avos" && preset !== "none" && (
