@@ -1,6 +1,12 @@
 import React from "react";
 
-const Elimination = ({ matches, getCountryBg, countryCounts }) => {
+const Elimination = ({
+  matches,
+  getCountryBg,
+  countryCounts,
+  focusTeamId,
+  focusRef,
+}) => {
   return (
     <div>
       {" "}
@@ -50,102 +56,119 @@ const Elimination = ({ matches, getCountryBg, countryCounts }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* columna izquierda: 1–8 */}
               <div className="grid gap-2">
-                {matches.slice(0, 8).map((m, i) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2"
-                  >
-                    <strong className="w-7 text-right">#{i + 1}</strong>
-
-                    {/* HOME */}
+                {matches.slice(0, 8).map((m, i) => {
+                  const hasFocusTeam =
+                    focusTeamId &&
+                    (m.home.id === focusTeamId || m.away.id === focusTeamId);
+                  return (
                     <div
-                      className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
-                        m.home.country
-                      )}`}
+                      key={m.id}
+                      ref={hasFocusTeam ? focusRef : null}
+                      className={`flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 ${
+                        hasFocusTeam ? "ring-2 ring-blue-500" : ""
+                      }`}
                     >
-                      <span className="font-medium text-center">
-                        {m.home.name}
-                      </span>
-                      <span className="text-xs text-slate-500 text-center">
-                        {m.home.country}
-                      </span>
-                    </div>
+                      <strong className="w-7 text-right">#{i + 1}</strong>
 
-                    <span className="font-bold mx-2">vs</span>
+                      {/* HOME */}
+                      <div
+                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
+                          m.home.country
+                        )}`}
+                      >
+                        <span className="font-medium text-center">
+                          {m.home.name}
+                        </span>
+                        <span className="text-xs text-slate-500 text-center">
+                          {m.home.country}
+                        </span>
+                      </div>
 
-                    {/* AWAY */}
-                    <div
-                      className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
-                        m.away.country
-                      )}`}
-                    >
-                      <span className="font-medium text-center">
-                        {m.away.name}
-                      </span>
-                      <span className="text-xs text-slate-500 text-center">
-                        {m.away.country}
-                      </span>
+                      <span className="font-bold mx-2">vs</span>
+
+                      {/* AWAY */}
+                      <div
+                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${getCountryBg(
+                          m.away.country
+                        )}`}
+                      >
+                        <span className="font-medium text-center">
+                          {m.away.name}
+                        </span>
+                        <span className="text-xs text-slate-500 text-center">
+                          {m.away.country}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* columna derecha: 9–16 */}
               <div className="grid gap-2">
-                {matches.slice(8, 16).map((m, i) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2"
-                  >
-                    <strong className="w-7 text-right">#{i + 9}</strong>
+                {matches.slice(8, 16).map((m, i) => {
+                  const hasFocusTeam =
+                    focusTeamId &&
+                    (m.home.id === focusTeamId || m.away.id === focusTeamId);
 
-                    {/* HOME */}
+                  return (
                     <div
-                      className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${
-                        m.home.country === "ARG"
-                          ? "bg-blue-50"
-                          : m.home.country === "BRA"
-                          ? "bg-green-50"
-                          : m.home.country === "CHI"
-                          ? "bg-red-50"
-                          : m.home.country === "COL"
-                          ? "bg-yellow-50"
-                          : "bg-slate-50"
+                      key={m.id}
+                      ref={hasFocusTeam ? focusRef : null}
+                      className={`flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 ${
+                        hasFocusTeam ? "ring-2 ring-blue-500" : ""
                       }`}
                     >
-                      <span className="font-medium text-center">
-                        {m.home.name}
-                      </span>
-                      <span className="text-xs text-slate-500 text-center">
-                        {m.home.country}
-                      </span>
-                    </div>
+                      <strong className="w-7 text-right">#{i + 9}</strong>
 
-                    <span className="font-bold mx-2">vs</span>
+                      {/* HOME */}
+                      <div
+                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${
+                          m.home.country === "ARG"
+                            ? "bg-blue-50"
+                            : m.home.country === "BRA"
+                            ? "bg-green-50"
+                            : m.home.country === "CHI"
+                            ? "bg-red-50"
+                            : m.home.country === "COL"
+                            ? "bg-yellow-50"
+                            : "bg-slate-50"
+                        }`}
+                      >
+                        <span className="font-medium text-center">
+                          {m.home.name}
+                        </span>
+                        <span className="text-xs text-slate-500 text-center">
+                          {m.home.country}
+                        </span>
+                      </div>
 
-                    {/* AWAY */}
-                    <div
-                      className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${
-                        m.away.country === "ARG"
-                          ? "bg-blue-50"
-                          : m.away.country === "BRA"
-                          ? "bg-green-50"
-                          : m.away.country === "CHI"
-                          ? "bg-red-50"
-                          : m.away.country === "COL"
-                          ? "bg-yellow-50"
-                          : "bg-slate-50"
-                      }`}
-                    >
-                      <span className="font-medium text-center">
-                        {m.away.name}
-                      </span>
-                      <span className="text-xs text-slate-500 text-center">
-                        {m.away.country}
-                      </span>
+                      <span className="font-bold mx-2">vs</span>
+
+                      {/* AWAY */}
+                      <div
+                        className={`flex-1 flex flex-col items-center justify-center rounded-md px-2 py-1 ${
+                          m.away.country === "ARG"
+                            ? "bg-blue-50"
+                            : m.away.country === "BRA"
+                            ? "bg-green-50"
+                            : m.away.country === "CHI"
+                            ? "bg-red-50"
+                            : m.away.country === "COL"
+                            ? "bg-yellow-50"
+                            : "bg-slate-50"
+                        }`}
+                      >
+                        <span className="font-medium text-center">
+                          {m.away.name}
+                        </span>
+                        <span className="text-xs text-slate-500 text-center">
+                          {m.away.country}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </>

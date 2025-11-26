@@ -1,6 +1,12 @@
 import React, { useEffect, useRef } from "react";
 
-const Groups = ({ groups, getCountryBg, countryCounts }) => {
+const Groups = ({
+  groups,
+  getCountryBg,
+  countryCounts,
+  focusTeamId,
+  focusRef,
+}) => {
   return (
     <div className="m-3">
       {groups.length > 0 && (
@@ -38,21 +44,31 @@ const Groups = ({ groups, getCountryBg, countryCounts }) => {
         </div>
       )}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {groups.map((group) => (
-          <div key={group.id} className="border rounded-lg shadow p-2">
-            <h2 className="text-lg font-bold mb-2">Grupo {group.id}</h2>
-            <ul className="space-y-1">
-              {group.teams.map((team) => (
-                <li
-                  key={team.id}
-                  className={`p-1 rounded ${getCountryBg(team.country)}`}
-                >
-                  {team.name}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        {groups.map((group) => {
+          const hasFocusTeam =
+            focusTeamId && group.teams.some((team) => team.id === focusTeamId);
+          return (
+            <div
+              key={group.id}
+              ref={hasFocusTeam ? focusRef : null}
+              className={`border rounded-lg shadow p-2 transition ${
+                hasFocusTeam ? "ring-2 ring-blue-500" : ""
+              }`}
+            >
+              <h2 className="text-lg font-bold mb-2">Grupo {group.id}</h2>
+              <ul className="space-y-1">
+                {group.teams.map((team) => (
+                  <li
+                    key={team.id}
+                    className={`p-1 rounded ${getCountryBg(team.country)}`}
+                  >
+                    {team.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 // cspell:ignore colombia bras chile otros brasil emparejamientos Notiflix notiflix
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { teams } from "./utils/teams";
 import Notiflix from "notiflix";
 import CountryRow from "./components/CountryRow";
@@ -18,6 +18,7 @@ import {
 import Elimination from "./components/Elimination";
 import Groups from "./components/Groups";
 import { buildGroups } from "./utils/buildGroups";
+import { CUP_PRESETS } from "./components/Copa_Arg_12/Template";
 
 function App() {
   const [argentina, setArgentina] = useState({ enabled: false, count: 0 });
@@ -37,8 +38,37 @@ function App() {
   /***********BOCA************/
 
   const [mustIncludeBJ, setMustIncludeBJ] = useState(false);
+  const bocaMatchRef = useRef(null);
 
   /***********BOCA************/
+
+  // Para Copa Argentina
+  const [preset, setPreset] = useState("none");
+  const [xAssignments, setXAssignments] = useState([]);
+
+  const selectedPresetConfig = useMemo(
+    () => (preset !== "none" ? CUP_PRESETS[preset] ?? null : null),
+    [preset]
+  );
+
+  const handleModeChange = (e) => {
+    const value = e.target.value;
+    if (!value) {
+      setFormato("");
+      setPreset("none");
+      setMatches([]);
+      setGroups([]);
+      setXAssignments([]);
+      return;
+    }
+
+    const [fmt, presetKey] = value.split("|");
+    setFormato(fmt);
+    setPreset(presetKey || "none");
+    setMatches([]);
+    setGroups([]);
+    setXAssignments([]);
+  };
 
   const ARG_TOTAL = teams.filter((t) => t.country === "ARG").length;
   const BRA_TOTAL = teams.filter((t) => t.country === "BRA").length;
@@ -100,6 +130,10 @@ function App() {
   const handleSortear = () => {
     Notiflix.Loading.circle("Sorteando…");
     try {
+      if (!Formato) {
+        Notiflix.Notify.failure("Elegí un formato de sorteo primero.");
+        return;
+      }
       // --- Helpers locales para garantizar inclusión de Boca ---
       const bocaTeam = teams.find((t) => t.id === 6);
 
@@ -124,6 +158,72 @@ function App() {
         const picked = shuffle(others).slice(0, Math.max(0, n - 1));
         return [team, ...picked];
       };
+      // ----------------------------------------------------------
+
+      // --- MODO COPA ARGENTINA 2012 (llaves fijas + X sorteadas) ---
+      if (Formato === "16avos" && selectedPresetConfig) {
+        const { template, seededIds, xCount } = selectedPresetConfig;
+
+        // Todos los equipos que NO están fijos en la plantilla
+        const restantes = teams.filter((t) => !seededIds.includes(t.id));
+
+        if (restantes.length < xCount) {
+          Notiflix.Notify.failure(
+            "No hay suficientes equipos para completar las plazas X."
+          );
+          return;
+        }
+
+        // Tomamos al azar tantos equipos como X haya
+        let bolsaX = shuffle(restantes).slice(0, xCount);
+
+        const nuevosMatches = [];
+        const nuevasX = [];
+
+        template.forEach((tpl, idx) => {
+          let homeTeam;
+          let awayTeam;
+
+          if (tpl.homeId != null) {
+            homeTeam = teams.find((t) => t.id === tpl.homeId);
+          } else {
+            const teamX = bolsaX.shift();
+            homeTeam = teamX;
+            nuevasX.push({
+              match: idx + 1,
+              side: "Local",
+              team: teamX,
+            });
+          }
+
+          if (tpl.awayId != null) {
+            awayTeam = teams.find((t) => t.id === tpl.awayId);
+          } else {
+            const teamX = bolsaX.shift();
+            awayTeam = teamX;
+            nuevasX.push({
+              match: idx + 1,
+              side: "Visitante",
+              team: teamX,
+            });
+          }
+
+          nuevosMatches.push({
+            id: idx + 1,
+            home: homeTeam,
+            away: awayTeam,
+          });
+        });
+
+        setMatches(nuevosMatches);
+        setGroups([]);
+        setXAssignments(nuevasX);
+        return; // no seguimos con el sorteo normal
+      }
+
+      // --- A PARTIR DE ACÁ, tu lógica normal de sorteo (global / por países) ---
+      setXAssignments([]); // en sorteo normal no hay X especiales
+
       // ----------------------------------------------------------
 
       // 1) Construir el pool base según el modo
@@ -209,6 +309,9 @@ function App() {
     setGlobalMode(false);
     setAllowSameCountry(true);
     setMatches([]);
+    setGroups([]);
+    setPreset("none");
+    setXAssignments([]);
   };
 
   const countryCounts = React.useMemo(() => {
@@ -230,6 +333,29 @@ function App() {
     return { ...acc, total: allTeams.length };
   }, [Formato, matches, groups]);
 
+  useEffect(() => {
+    if (!mustIncludeBJ) return;
+
+    // 16avos: necesitamos 32 equipos (16 partidos)
+    if (Formato === "16avos") {
+      if (!Array.isArray(matches) || matches.length === 0) return;
+      const totalTeams = matches.length * 2;
+      if (totalTeams !== 32) return;
+    }
+
+    // Grupos: con que haya grupos ya alcanza
+    if (Formato === "Grupos") {
+      if (!Array.isArray(groups) || groups.length === 0) return;
+    }
+
+    if (bocaMatchRef.current) {
+      bocaMatchRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [matches, groups, mustIncludeBJ, Formato]);
+
   return (
     <main className="min-h-screen bg-slate-50 py-10">
       <div className="mx-auto max-w-3xl px-4">
@@ -248,16 +374,31 @@ function App() {
             <h2 className="text-base font-semibold text-slate-900">
               Configuración del sorteo
             </h2>
+
             <select
-              name=""
-              id=""
               className="mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-500 focus:ring-2 focus:ring-slate-500"
-              onChange={(e) => setFormato(e.target.value)}
+              value={Formato ? `${Formato}|${preset}` : ""}
+              onChange={handleModeChange}
             >
-              <option value="">Formato</option>
-              <option value="16avos">16avos</option>
-              <option value="Grupos">Grupos</option>
+              <option value="">Seleccionar formato</option>
+              {/* 16avos libre */}
+              <option value="16avos|none">16avos</option>
+
+              {/* Grupos sin plantilla */}
+              <option value="Grupos|none">Fase de grupos</option>
+
+              {/* Copas Argentina, se agregan solas leyendo CUP_PRESETS */}
+              <option value="16avos|copa-arg-2012">Copa Argentina 2012</option>
+              <option value="16avos|copa-arg-2013">Copa Argentina 2013</option>
+              <option value="16avos|copa-arg-2014">Copa Argentina 2014</option>
             </select>
+
+            {Formato === "16avos" && preset !== "none" && (
+              <p className="mt-1 text-xs text-slate-500">
+                Se fijan los cruces según la copa elegida; solo se sortean las
+                plazas marcadas como &quot;X&quot;.
+              </p>
+            )}
           </div>
           {/* Controles globales */}
           <div className="px-6 py-3">
@@ -413,6 +554,8 @@ function App() {
             matches={matches}
             countryCounts={countryCounts}
             getCountryBg={getCountryBg}
+            focusTeamId={mustIncludeBJ ? 6 : null}
+            focusRef={bocaMatchRef}
           />
         )}
         {Formato === "Grupos" && (
@@ -420,8 +563,30 @@ function App() {
             groups={groups}
             getCountryBg={getCountryBg}
             countryCounts={countryCounts}
+            focusTeamId={mustIncludeBJ ? 6 : null}
+            focusRef={bocaMatchRef}
           />
         )}
+        {Formato === "16avos" &&
+          preset !== "none" &&
+          xAssignments.length > 0 && (
+            <section className="mt-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-900/5 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900">
+                Equipos sorteados en plazas &quot;X&quot;
+                {CUP_PRESETS[preset]?.label
+                  ? ` – ${CUP_PRESETS[preset].label}`
+                  : ""}
+              </h2>
+              <ul className="mt-2 text-sm text-slate-700 space-y-1">
+                {xAssignments.map((x, idx) => (
+                  <li key={idx}>
+                    Partido {x.match} ({x.side}):{" "}
+                    <span className="font-medium">{x.team.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
       </div>
     </main>
   );
