@@ -399,6 +399,7 @@ function App() {
               <option value="16avos|copa-arg-2020">Copa Argentina 2020</option>
               <option value="16avos|copa-arg-2022">Copa Argentina 2022</option>
               <option value="16avos|copa-arg-2023">Copa Argentina 2023</option>
+              <option value="16avos|copa-arg-2024">Copa Argentina 2024</option>
               <option value="16avos|copa-arg-2025">Copa Argentina 2025</option>
             </select>
 
