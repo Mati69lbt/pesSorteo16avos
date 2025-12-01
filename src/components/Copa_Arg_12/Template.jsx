@@ -295,20 +295,20 @@ export const COPA_ARG_2024_TEMPLATE = [
 export const COPA_ARG_2025_TEMPLATE = [
   { homeId: 20, awayId: null },
   { homeId: 24, awayId: 4 },
-  { homeId: 18, awayId: null },
+  { homeId: null, awayId: null },
   { homeId: null, awayId: 10 },
   { homeId: 17, awayId: 21 },
   { homeId: null, awayId: 23 },
   { homeId: 19, awayId: 25 },
   { homeId: 22, awayId: 7 },
-  { homeId: null, awayId: 3 },
-  { homeId: 8, awayId: 15 },
-  { homeId: 5, awayId: null },
+  { homeId: 18, awayId: 6 },
+  { homeId: 3, awayId: 8 },
+  { homeId: 15, awayId: 5 },
   { homeId: null, awayId: 13 },
   { homeId: 9, awayId: 1 },
   { homeId: 11, awayId: 2 },
   { homeId: 14, awayId: 26 },
-  { homeId: 6, awayId: 12 },
+  { homeId: null, awayId: 12 },
 ];
 
 const getSeededIds = (template) =>

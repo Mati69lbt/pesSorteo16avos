@@ -580,21 +580,36 @@ function App() {
         {Formato === "16avos" &&
           preset !== "none" &&
           xAssignments.length > 0 && (
-            <section className="mt-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-900/5 px-4 py-3">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Equipos sorteados en plazas &quot;X&quot;
-                {CUP_PRESETS[preset]?.label
-                  ? ` – ${CUP_PRESETS[preset].label}`
-                  : ""}
-              </h2>
-              <ul className="mt-2 text-sm text-slate-700 space-y-1">
-                {xAssignments.map((x, idx) => (
-                  <li key={idx}>
-                    Partido {x.match} ({x.side}):{" "}
-                    <span className="font-medium">{x.team.name}</span>
-                  </li>
-                ))}
-              </ul>
+            <section className="mt-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-900/5 px-4 py-3">         
+          
+              <div
+                class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 shadow-lg rounded-lg max-w-sm mx-auto my-4"
+                role="alert"
+              >
+                <div class="flex items-center">
+                  <svg
+                    class="fill-current h-6 w-6 text-yellow-600 mr-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M8.257 3.099c.765-1.427 2.607-1.427 3.372 0l4.35 8.163c.756 1.414-.204 3.12-1.74 3.12H5.647c-1.536 0-2.496-1.706-1.74-3.12l4.35-8.163zM10 16a1 1 0 100 2 1 1 0 000-2zm-1-7a1 1 0 002 0V7a1 1 0 10-2 0v2z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  <div>
+                    <h2 class="font-bold text-lg">
+                      ⚠️ ¡Importante Recordatorio! ⚠️
+                    </h2>
+                    <p class="mt-1 text-base">
+                      Recordá configurar el campeonato en partidos ida y
+                      vuelta
+                    </p>
+                  </div>
+                </div>
+              </div>
             </section>
           )}
       </div>
